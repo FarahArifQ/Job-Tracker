@@ -15,6 +15,13 @@ const statusMap: Record<Status, string> = {
   rejected:     "bg-[oklch(0.52_0.22_26/0.10)] text-[var(--danger)] border-[oklch(0.52_0.22_26/0.32)]",
 }
 
+const HEADLINES = [
+  { before: "A quieter way to ",      italic: "track",         after: " the work that finds you." },
+  { before: "Stop guessing. Start ",  italic: "knowing",       after: " if you're a fit."         },
+  { before: "Every application, ",    italic: "organised",     after: " and analysed."            },
+  { before: "Your job search, finally ", italic: "under control", after: "."                      },
+]
+
 function StatusPill({ status, onChange }: { status: Status; onChange: (s: Status) => void }) {
   return (
     <select
@@ -33,6 +40,7 @@ function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" 
   const color = score >= 7 ? "var(--success)" : score >= 4 ? "var(--warning)" : "var(--danger)"
   if (size === "sm") return (
     <div className="card-3d relative inline-flex h-16 w-16 flex-col items-center justify-center rounded-xl"
+         data-tooltip="AI match score out of 10"
          style={{border:"1px solid var(--border)",background:"var(--card)"}}>
       <span className="font-display text-2xl font-light leading-none" style={{color}}>{score}</span>
       <span className="font-mono text-[11px] tracking-widest" style={{color:"var(--muted-foreground)",opacity:0.55}}>/10</span>
@@ -40,6 +48,7 @@ function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" 
   )
   return (
     <div className="card-3d inline-flex flex-col items-center justify-center rounded-2xl px-6 py-4"
+         data-tooltip="How well this job fits your profile"
          style={{background:"var(--card)",border:"1px solid var(--border)"}}>
       <span className="font-display text-7xl font-light leading-none" style={{color}}>{score}</span>
       <span className="mt-1 font-mono text-sm tracking-[0.22em]" style={{color:"var(--muted-foreground)",opacity:0.5}}>/10</span>
@@ -54,9 +63,22 @@ export default function Home() {
   const [jobs, setJobs]           = useState<any[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
   const [user, setUser]           = useState<any>(null)
-  const router  = useRouter()
+  const [headlineIdx, setHeadlineIdx]   = useState(0)
+  const [headlineFade, setHeadlineFade] = useState(true)
+  const router   = useRouter()
   const supabase = createClient()
   const resultRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setHeadlineFade(false)
+      setTimeout(() => {
+        setHeadlineIdx(i => (i + 1) % HEADLINES.length)
+        setHeadlineFade(true)
+      }, 300)
+    }, 4000)
+    return () => clearInterval(t)
+  }, [])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
@@ -111,6 +133,9 @@ export default function Home() {
   const interviewing = jobs.filter(j => j.status === "interviewing").length
   const offers       = jobs.filter(j => j.status === "offer").length
 
+  const focusJob = jobs.find(j => j.status === "interviewing" || j.status === "applied")
+  const hl = HEADLINES[headlineIdx]
+
   return (
     <main className="min-h-screen" style={{color:"var(--foreground)"}}>
 
@@ -138,7 +163,9 @@ export default function Home() {
                 {user.email}
               </span>
             )}
-            <Link href="/profile" className="rounded-full border px-4 py-2 text-xs font-medium tracking-wide transition-opacity hover:opacity-70"
+            <Link href="/profile"
+                  data-tooltip="Update your CV and skills"
+                  className="rounded-full border px-4 py-2 text-xs font-medium tracking-wide transition-opacity hover:opacity-70"
                   style={{borderColor:"var(--border)",background:"var(--card)"}}>
               Profile
             </Link>
@@ -155,50 +182,95 @@ export default function Home() {
         {/* Hero */}
         <section className="animate-float-up grid grid-cols-1 gap-10 md:grid-cols-12">
           <div className="md:col-span-8">
-            <h1 className="font-display text-5xl font-light leading-[1.02] tracking-tight md:text-7xl" style={{textWrap:"balance"}}>
-              A quieter way to <em style={{color:"var(--accent)"}}>track</em> the
-              <br className="hidden md:block"/> work that finds you.
+            <h1
+              className="font-display text-5xl font-light leading-[1.02] tracking-tight md:text-7xl"
+              style={{textWrap:"balance", transition:"opacity 0.3s ease", opacity: headlineFade ? 1 : 0}}
+            >
+              {hl.before}
+              <em className="wobble-word not-italic" style={{color:"var(--accent)", fontStyle:"italic"}}>
+                {hl.italic}
+              </em>
+              {hl.after}
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed md:text-lg" style={{color:"var(--muted-foreground)"}}>
               Paste a job description. Let the system surface what matters — and keep every application close at hand.
             </p>
           </div>
+
+          {/* Current focus card */}
           <aside className="md:col-span-4 md:pt-2">
-            <div className="card-3d rounded-2xl p-6" style={{border:"1px solid var(--border)",background:"var(--card)"}}>
+            <div className="card-3d rounded-2xl p-6"
+                 data-tooltip="Your current job search focus"
+                 style={{border:"1px solid var(--border)",background:"var(--card)"}}>
               <p className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{color:"var(--muted-foreground)"}}>Current focus</p>
-              <p className="mt-3 font-display text-xl leading-snug">
-                {result ? `${result.role} at ${result.company}` : "Your next opportunity."}
-              </p>
-              <div className="mt-5 flex items-center justify-between border-t pt-4 font-mono text-[11px] uppercase tracking-[0.18em]"
-                   style={{borderColor:"var(--border)",color:"var(--muted-foreground)"}}>
-                <span>{total} tracked</span>
-                <span>{interviewing} active</span>
-              </div>
+
+              {!loadingJobs && jobs.length === 0 ? (
+                <>
+                  <p className="mt-3 font-display text-xl leading-snug">Welcome to JobTracker</p>
+                  <p className="mt-2 text-sm leading-relaxed" style={{color:"var(--muted-foreground)"}}>
+                    Paste any job description below to get started. AI will analyse your fit, extract required skills, and flag red flags — in seconds.
+                  </p>
+                  <p className="mt-4 text-center text-xl animate-bounce" style={{color:"var(--accent)"}}>↓</p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-3 font-display text-xl leading-snug">
+                    {result
+                      ? `${result.role} at ${result.company}`
+                      : focusJob
+                        ? `${focusJob.role} at ${focusJob.company}`
+                        : "Your next opportunity."}
+                  </p>
+                  <div className="mt-5 flex items-center justify-between border-t pt-4 font-mono text-[11px] uppercase tracking-[0.18em]"
+                       style={{borderColor:"var(--border)",color:"var(--muted-foreground)"}}>
+                    <span>{total} tracked</span>
+                    <span>{interviewing} active</span>
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         </section>
 
-        {/* Stats */}
-        <section className="mt-16 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[
-            { label: "Tracked",      value: total,        color: "var(--foreground)" },
-            { label: "Applied",      value: applied,      color: "var(--info)"       },
-            { label: "Interviewing", value: interviewing, color: "var(--accent)"     },
-            { label: "Offers",       value: offers,       color: "var(--success)"    },
-          ].map((s) => (
-            <div key={s.label} className="card-3d rounded-2xl p-6" style={{border:"1px solid var(--border)",background:"var(--card)"}}>
-              <p className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{color:"var(--muted-foreground)"}}>
-                {s.label}
-              </p>
-              <p className="mt-3 font-display text-5xl font-light tracking-tight" style={{color:s.color}}>
-                {String(s.value).padStart(2,"0")}
-              </p>
+        {/* Stats — single card with dividers */}
+        <section className="mt-16">
+          <div className="card-3d rounded-2xl"
+               data-tooltip="Your application pipeline at a glance"
+               style={{border:"1px solid var(--border)",background:"var(--card)"}}>
+            <div className="grid grid-cols-2 md:grid-cols-4">
+              {([
+                { label: "Tracked",      value: total,        color: "var(--foreground)", br: "border-r border-b md:border-b-0" },
+                { label: "Applied",      value: applied,      color: "var(--info)",        br: "border-b md:border-b-0 md:border-r" },
+                { label: "Interviewing", value: interviewing, color: "var(--accent)",      br: "border-r" },
+                { label: "Offers",       value: offers,       color: "var(--success)",     br: "" },
+              ] as const).map((s) => (
+                <div key={s.label} className={`p-6 ${s.br}`} style={{borderColor:"var(--border)"}}>
+                  <p className="font-mono text-sm uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>
+                    {s.label}
+                  </p>
+                  <p className="mt-2 font-display text-3xl font-light tracking-tight" style={{color:s.color}}>
+                    {String(s.value).padStart(2, "0")}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </section>
 
+        {/* Onboarding banner — only shown when no jobs yet */}
+        {!loadingJobs && jobs.length === 0 && (
+          <div className="mt-6 rounded-2xl border-2 border-dashed px-6 py-4 text-center"
+               style={{borderColor:"var(--border)"}}>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>
+              You have no applications yet — paste a job description below to analyse your first one.
+            </p>
+          </div>
+        )}
+
         {/* Analyse */}
-        <section className="mt-10 overflow-hidden rounded-3xl card-3d" style={{border:"1px solid var(--border)",background:"var(--card)"}}>
+        <section className="mt-10 overflow-hidden rounded-3xl card-3d"
+                 data-tooltip="Paste a job description for an instant AI fit analysis"
+                 style={{border:"1px solid var(--border)",background:"var(--card)"}}>
           <div className="grid grid-cols-1 md:grid-cols-12">
             <div className="border-b p-8 md:col-span-4 md:border-b-0 md:border-r" style={{borderColor:"var(--border)",background:"var(--gradient-warm)"}}>
               <h2 className="font-display text-3xl font-light leading-tight tracking-tight">Analyse a listing</h2>
@@ -247,6 +319,7 @@ export default function Home() {
         {/* Latest result */}
         {result && (
           <section ref={resultRef} className="mt-8 animate-fade-in overflow-hidden rounded-3xl"
+                   data-tooltip="Your most recent AI analysis"
                    style={{border:"1px solid oklch(0.56 0.19 34 / 0.28)",background:"oklch(0.56 0.19 34 / 0.04)",boxShadow:"var(--shadow-glow)"}}>
             <div className="p-8">
               <p className="mb-5 font-mono text-[10px] uppercase tracking-[0.22em]" style={{color:"var(--accent)"}}>Latest analysis</p>
@@ -301,7 +374,9 @@ export default function Home() {
           ) : (
             <ul style={{borderTop:"1px solid var(--border)"}}>
               {jobs.map((job, idx) => (
-                <li key={job.id} className="grid grid-cols-12 gap-4 py-8 transition-colors hover:bg-[var(--secondary)]/30"
+                <li key={job.id}
+                    data-tooltip={`${job.role} · match score ${job.match_score}/10`}
+                    className="grid grid-cols-12 gap-4 py-8 transition-colors hover:bg-[var(--secondary)]/30"
                     style={{borderBottom:"1px solid var(--border)"}}>
                   <div className="col-span-12 flex items-baseline gap-4 md:col-span-1">
                     <span className="font-mono text-xs" style={{color:"var(--muted-foreground)"}}>{String(idx+1).padStart(2,"0")}</span>
