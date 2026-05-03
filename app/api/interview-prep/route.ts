@@ -6,20 +6,20 @@ const GEMINI_URL =
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { jobText, role, company } = await request.json()
   if (!jobText?.trim()) return Response.json({ error: 'Job text required' }, { status: 400 })
 
-  const prompt = `You are an interview coach. Based on the job posting below, generate interview questions for the role of ${role} at ${company}.
+  const prompt = `You are an interview coach. Based on the job posting below, generate interview questions and model answers for the role of ${role} at ${company}.
 
 Return a JSON object with exactly these fields:
-- technical: string[] (3-4 technical questions testing skills listed in the job)
-- behavioural: string[] (3 behavioural questions in STAR format style, starting with "Tell me about a time…" or "Describe a situation…")
-- role_specific: string[] (3 questions specific to the seniority level, team context, or company domain described)
+- technical: array of {question: string, answer: string} (3-4 technical questions with concise model answers)
+- behavioural: array of {question: string, answer: string} (3 behavioural questions in STAR format style, with a sample STAR answer)
+- role_specific: array of {question: string, answer: string} (3 questions specific to the seniority/team/company, with strong model answers)
 
-Make questions specific to this job — not generic. Return ONLY valid JSON, no markdown.
+Make questions and answers specific to this job — not generic. Answers should be 3-5 sentences. Return ONLY valid JSON, no markdown.
 
 Job posting:
 ${jobText}`

@@ -70,6 +70,7 @@ ${jobText}`
     .from('job_applications')
     .insert({
       user_id: user.id,
+      user_email: user.email,
       job_text: jobText,
       role: analysis.role,
       company: analysis.company,

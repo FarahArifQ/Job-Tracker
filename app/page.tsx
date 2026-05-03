@@ -37,9 +37,10 @@ const categoryMeta = {
 }
 
 function InterviewPrepPanel({ job, onClose }: { job: any; onClose: () => void }) {
-  const [questions, setQuestions] = useState<any>(null)
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState("")
+  const [questions, setQuestions]   = useState<any>(null)
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState("")
+  const [openAnswers, setOpenAnswers] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetch("/api/interview-prep", {
@@ -105,7 +106,7 @@ function InterviewPrepPanel({ job, onClose }: { job: any; onClose: () => void })
           {questions && (
             <div className="space-y-8">
               {(["technical","behavioural","role_specific"] as const).map(cat => {
-                const items: string[] = questions[cat] ?? []
+                const items: {question: string, answer: string}[] = questions[cat] ?? []
                 if (!items.length) return null
                 const meta = categoryMeta[cat]
                 return (
@@ -121,15 +122,41 @@ function InterviewPrepPanel({ job, onClose }: { job: any; onClose: () => void })
                       </span>
                       <span className="h-px flex-1" style={{background:"var(--border)"}}/>
                     </div>
-                    <ol className="space-y-4">
-                      {items.map((q, i) => (
-                        <li key={i} className="flex gap-4">
-                          <span className="mt-0.5 font-mono text-[10px] shrink-0 tabular-nums" style={{color: meta.color, opacity:0.7}}>
-                            {String(i + 1).padStart(2, "0")}
-                          </span>
-                          <p className="text-sm leading-relaxed" style={{color:"var(--foreground)"}}>{q}</p>
-                        </li>
-                      ))}
+                    <ol className="space-y-5">
+                      {items.map((item, i) => {
+                        const key = `${cat}-${i}`
+                        const isOpen = openAnswers[key]
+                        const q = typeof item === "string" ? item : item.question
+                        const a = typeof item === "string" ? null : item.answer
+                        return (
+                          <li key={i} className="flex gap-4">
+                            <span className="mt-0.5 font-mono text-[10px] shrink-0 tabular-nums" style={{color: meta.color, opacity:0.7}}>
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
+                            <div className="flex-1">
+                              <p className="text-sm leading-relaxed" style={{color:"var(--foreground)"}}>{q}</p>
+                              {a && (
+                                <div className="mt-2">
+                                  <button
+                                    onClick={() => setOpenAnswers(p => ({ ...p, [key]: !p[key] }))}
+                                    className="font-mono text-[10px] uppercase tracking-[0.14em] flex items-center gap-1 transition-opacity hover:opacity-70"
+                                    style={{color: meta.color}}
+                                  >
+                                    <span style={{display:"inline-block", transition:"transform 0.2s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)"}}>▶</span>
+                                    {isOpen ? "Hide answer" : "Show answer"}
+                                  </button>
+                                  {isOpen && (
+                                    <p className="mt-2 text-sm leading-relaxed rounded-lg px-4 py-3 animate-fade-in"
+                                       style={{background:"var(--secondary)", color:"var(--muted-foreground)", borderLeft:"2px solid "+meta.color}}>
+                                      {a}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        )
+                      })}
                     </ol>
                   </div>
                 )
@@ -441,7 +468,7 @@ export default function Home() {
         <section className="animate-float-up grid grid-cols-1 gap-10 md:grid-cols-12">
           <div className="md:col-span-8">
             <h1
-              className="font-display text-5xl font-light leading-[1.02] tracking-tight md:text-7xl"
+              className="font-display text-[2.6rem] font-light leading-[1.05] tracking-tight sm:text-5xl md:text-7xl"
               style={{textWrap:"balance", transition:"opacity 0.3s ease", opacity: headlineFade ? 1 : 0}}
             >
               {hl.before}
@@ -483,6 +510,9 @@ export default function Home() {
                   </div>
                   <p className="mt-2 font-display text-xl leading-snug">{focusJob.role}</p>
                   <p className="font-mono text-xs uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>· {focusJob.company}</p>
+                  <p className="mt-1 font-mono text-[10px]" style={{color:"var(--muted-foreground)"}}>
+                    {Math.floor((Date.now() - new Date(focusJob.created_at).getTime()) / 86400000)} days ago
+                  </p>
                   <div className="mt-5 flex items-center justify-between border-t pt-4 font-mono text-[11px] uppercase tracking-[0.18em]"
                        style={{borderColor:"var(--border)",color:"var(--muted-foreground)"}}>
                     <span>{total} tracked</span>
@@ -516,22 +546,23 @@ export default function Home() {
 
         {/* Stats — single card with dividers */}
         <section className="mt-16">
-          <div className="card-3d rounded-2xl"
+          <div className="card-3d overflow-hidden rounded-2xl"
                data-tooltip="Your application pipeline at a glance"
                style={{border:"1px solid var(--border)",background:"var(--card)"}}>
-            <div className="grid grid-cols-2 md:grid-cols-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
               {[
-                { label: "Tracked",       display: String(total).padStart(2,"0"),        color: "var(--foreground)", br: "border-r border-b md:border-b-0" },
-                { label: "Applied",       display: String(applied).padStart(2,"0"),      color: "var(--info)",       br: "border-b md:border-b-0 md:border-r" },
-                { label: "Interviewing",  display: String(interviewing).padStart(2,"0"), color: "var(--accent)",     br: "border-r border-b md:border-b-0" },
-                { label: "Offers",        display: String(offers).padStart(2,"0"),       color: "var(--success)",    br: "border-b md:border-b-0 md:border-r" },
-                { label: "Response rate", display: responseRate !== null ? `${responseRate}%` : "—", color: responseRate === null ? "var(--muted-foreground)" : responseRate >= 50 ? "var(--success)" : "var(--warning)", br: "" },
+                { label: "Tracked",       display: String(total).padStart(2,"0"),        color: "var(--foreground)" },
+                { label: "Applied",       display: String(applied).padStart(2,"0"),      color: "var(--info)"       },
+                { label: "Interviewing",  display: String(interviewing).padStart(2,"0"), color: "var(--accent)"     },
+                { label: "Offers",        display: String(offers).padStart(2,"0"),       color: "var(--success)"    },
+                { label: "Response rate", display: responseRate !== null ? `${responseRate}%` : "—", color: responseRate === null ? "var(--muted-foreground)" : responseRate >= 50 ? "var(--success)" : "var(--warning)" },
               ].map((s) => (
-                <div key={s.label} className={`p-6 ${s.br}`} style={{borderColor:"var(--border)"}}>
-                  <p className="font-mono text-sm uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>
+                <div key={s.label} className="p-5 md:p-6"
+                     style={{borderRight:"1px solid var(--border)", borderBottom:"1px solid var(--border)"}}>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>
                     {s.label}
                   </p>
-                  <p className="mt-2 font-display text-3xl font-light tracking-tight" style={{color:s.color}}>
+                  <p className="mt-2 font-display text-2xl md:text-3xl font-light tracking-tight" style={{color:s.color}}>
                     {s.display}
                   </p>
                 </div>
@@ -555,7 +586,7 @@ export default function Home() {
                  data-tooltip="Paste a job description for an instant AI fit analysis"
                  style={{border:"1px solid var(--border)",background:"var(--card)"}}>
           <div className="grid grid-cols-1 md:grid-cols-12">
-            <div className="border-b p-8 md:col-span-4 md:border-b-0 md:border-r" style={{borderColor:"var(--border)",background:"var(--gradient-warm)"}}>
+            <div className="border-b p-6 md:col-span-4 md:border-b-0 md:border-r md:p-8" style={{borderColor:"var(--border)",background:"var(--gradient-warm)"}}>
               <h2 className="font-display text-3xl font-light leading-tight tracking-tight">Analyse a listing</h2>
               <p className="mt-4 text-sm leading-relaxed" style={{color:"var(--foreground)",opacity:0.7}}>
                 Paste any job description. We'll read between the lines — seniority, scope, what they really want.
@@ -567,7 +598,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="p-8 md:col-span-8">
+            <div className="p-6 md:col-span-8 md:p-8">
               <textarea
                 value={jd}
                 onChange={(e) => setJd(e.target.value)}
@@ -604,11 +635,11 @@ export default function Home() {
           <section ref={resultRef} className="mt-8 animate-fade-in overflow-hidden rounded-3xl"
                    data-tooltip="Your most recent AI analysis"
                    style={{border:"1px solid oklch(0.56 0.19 34 / 0.28)",background:"oklch(0.56 0.19 34 / 0.04)",boxShadow:"var(--shadow-glow)"}}>
-            <div className="p-8">
+            <div className="p-6 md:p-8">
               <p className="mb-5 font-mono text-[10px] uppercase tracking-[0.22em]" style={{color:"var(--accent)"}}>Latest analysis</p>
-              <div className="flex items-start justify-between gap-6">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex-1">
-                  <h3 className="font-display text-3xl font-light tracking-tight">{result.role}</h3>
+                  <h3 className="font-display text-2xl font-light tracking-tight sm:text-3xl">{result.role}</h3>
                   <p className="mt-1 font-mono text-xs uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>· {result.company}</p>
                   <p className="mt-4 max-w-2xl text-sm leading-relaxed" style={{color:"var(--muted-foreground)"}}>{result.match_reason}</p>
                   <div className="mt-4 flex flex-wrap gap-1.5">
@@ -651,7 +682,33 @@ export default function Home() {
           </div>
 
           {loadingJobs ? (
-            <p className="py-12 text-center font-mono text-sm" style={{color:"var(--muted-foreground)"}}>Loading…</p>
+            <ul style={{borderTop:"1px solid var(--border)"}}>
+              {[0,1,2].map(i => (
+                <li key={i} className="grid grid-cols-12 gap-x-4 gap-y-2 py-6 md:py-8" style={{borderBottom:"1px solid var(--border)"}}>
+                  <div className="col-span-2 md:col-span-1 flex items-center">
+                    <div className="skeleton h-3 w-5"/>
+                  </div>
+                  <div className="col-span-2 md:col-span-3 flex items-center">
+                    <div className="skeleton h-10 w-10 rounded-xl"/>
+                  </div>
+                  <div className="col-span-12 md:col-span-6 space-y-2">
+                    <div className="skeleton h-6 w-48 rounded-lg"/>
+                    <div className="skeleton h-3 w-24 rounded"/>
+                    <div className="skeleton h-3 w-full max-w-sm rounded"/>
+                    <div className="skeleton h-3 w-4/5 rounded"/>
+                    <div className="mt-3 flex gap-2">
+                      <div className="skeleton h-5 w-14 rounded-full"/>
+                      <div className="skeleton h-5 w-14 rounded-full"/>
+                      <div className="skeleton h-5 w-14 rounded-full"/>
+                    </div>
+                  </div>
+                  <div className="col-span-12 md:col-span-2 flex flex-wrap gap-2 md:flex-col md:items-end">
+                    <div className="skeleton h-6 w-24 rounded-full"/>
+                    <div className="skeleton h-3 w-20 rounded"/>
+                  </div>
+                </li>
+              ))}
+            </ul>
           ) : jobs.length === 0 ? (
             <p className="py-12 text-center font-mono text-sm" style={{color:"var(--muted-foreground)"}}>No applications yet. Paste a job above.</p>
           ) : (
@@ -659,15 +716,15 @@ export default function Home() {
               {jobs.map((job, idx) => (
                 <li key={job.id}
 
-                    className="job-row group grid grid-cols-12 gap-4 py-8"
+                    className="job-row group grid grid-cols-12 gap-x-4 gap-y-2 py-6 md:py-8"
                     style={{borderBottom:"1px solid var(--border)"}}>
-                  <div className="col-span-12 flex items-baseline gap-4 md:col-span-1">
+                  <div className="col-span-2 flex items-center md:col-span-1">
                     <span className="font-mono text-xs" style={{color:"var(--muted-foreground)"}}>{String(idx+1).padStart(2,"0")}</span>
                   </div>
-                  <div className="col-span-3 hidden md:block">
+                  <div className="col-span-2 flex items-center md:col-span-3 md:block">
                     <ScoreBadge score={job.match_score} size="sm" />
                   </div>
-                  <div className="col-span-12 md:col-span-6">
+                  <div className="col-span-12 md:col-span-6 md:col-start-5">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <h3 className="font-display text-2xl font-normal tracking-tight">{job.role}</h3>
                       <span className="font-mono text-xs uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>· {job.company}</span>
@@ -683,60 +740,119 @@ export default function Home() {
                       )}
                     </div>
 
+                    {/* Action buttons row */}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setPrepJob(job)}
+                        data-tooltip="Get AI-generated interview questions for this role"
+                        className="group font-mono text-[10px] uppercase tracking-[0.14em] rounded-full px-3 py-1.5 flex items-center gap-1.5 transition-all"
+                        style={{
+                          border: "1px solid oklch(0.60 0.12 228 / 0.45)",
+                          background: "oklch(0.92 0.06 228 / 0.55)",
+                          color: "oklch(0.35 0.13 228)"
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.86 0.09 228 / 0.7)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "oklch(0.92 0.06 228 / 0.55)")}
+                      >
+                        <span>⚡</span> Prep
+                      </button>
+                      <button
+                        onClick={() => setCoverLetterJob(job)}
+                        data-tooltip="Generate a personalised cover letter using your CV"
+                        className="font-mono text-[10px] uppercase tracking-[0.14em] rounded-full px-3 py-1.5 flex items-center gap-1.5 transition-all"
+                        style={{
+                          border: "1px solid oklch(0.62 0.14 48 / 0.45)",
+                          background: "oklch(0.93 0.06 48 / 0.55)",
+                          color: "oklch(0.38 0.14 38)"
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.87 0.09 48 / 0.7)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "oklch(0.93 0.06 48 / 0.55)")}
+                      >
+                        <span>✉</span> Cover letter
+                      </button>
+                    </div>
+
                     {/* Notes */}
                     <div className="mt-4">
-                      {(notesOpen[job.id] || job.notes) ? (
-                        <textarea
-                          defaultValue={job.notes ?? ""}
-                          onBlur={(e) => saveNotes(job.id, e.target.value)}
-                          placeholder="Notes…"
-                          rows={2}
-                          className="w-full resize-none rounded-lg px-3 py-2 text-sm leading-relaxed outline-none transition-colors"
-                          style={{
-                            border: "1px solid var(--border)",
-                            background: "var(--background)",
-                            color: "var(--foreground)",
-                          }}
-                        />
+                      {notesOpen[job.id] ? (
+                        <div>
+                          <textarea
+                            id={`note-${job.id}`}
+                            defaultValue={job.notes ?? ""}
+                            placeholder="Notes…"
+                            rows={2}
+                            className="w-full resize-none rounded-lg px-3 py-2 text-sm leading-relaxed outline-none transition-colors"
+                            style={{
+                              border: "1px solid var(--border)",
+                              background: "var(--background)",
+                              color: "var(--foreground)",
+                            }}
+                          />
+                          <div className="mt-1.5 flex gap-2">
+                            <button
+                              onClick={() => {
+                                const el = document.getElementById(`note-${job.id}`) as HTMLTextAreaElement
+                                saveNotes(job.id, el.value)
+                                setNotesOpen(p => ({ ...p, [job.id]: false }))
+                              }}
+                              className="font-mono text-[10px] uppercase tracking-[0.14em] rounded-full px-3 py-1 transition-opacity hover:opacity-80"
+                              style={{ background: "var(--accent)", color: "oklch(0.98 0.01 80)" }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setNotesOpen(p => ({ ...p, [job.id]: false }))}
+                              className="font-mono text-[10px] uppercase tracking-[0.14em] transition-opacity hover:opacity-70"
+                              style={{ color: "var(--muted-foreground)" }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : job.notes ? (
+                        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1"
+                             style={{ border: "1px solid oklch(0.56 0.19 34 / 0.35)", background: "oklch(0.56 0.19 34 / 0.06)" }}>
+                          <span className="text-xs" style={{ color: "var(--foreground)" }}>{job.notes}</span>
+                          <button
+                            onClick={() => setNotesOpen(p => ({ ...p, [job.id]: true }))}
+                            className="font-mono text-[11px] shrink-0 transition-opacity hover:opacity-70"
+                            style={{ color: "var(--accent)" }}
+                          >
+                            ✎
+                          </button>
+                        </div>
                       ) : (
                         <button
                           onClick={() => setNotesOpen(p => ({ ...p, [job.id]: true }))}
                           className="font-mono text-[10px] uppercase tracking-[0.18em] transition-opacity hover:opacity-70"
-                          style={{color:"var(--muted-foreground)"}}
+                          style={{
+                            color: "var(--accent)",
+                            textDecoration: "underline",
+                            textDecorationStyle: "dashed",
+                            textUnderlineOffset: "3px"
+                          }}
                         >
                           + Add note
                         </button>
                       )}
                     </div>
                   </div>
-                  <div className="col-span-12 flex items-start justify-between gap-3 md:col-span-2 md:flex-col md:items-end md:justify-start">
+                  <div className="col-span-12 flex flex-wrap items-center gap-2 md:col-span-2 md:flex-col md:items-end md:justify-start">
                     <StatusPill status={job.status as Status} onChange={(s) => updateStatus(job.id, s)} />
                     <span className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>
                       {new Date(job.created_at).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
                     </span>
                     <button
-                      onClick={() => setPrepJob(job)}
-                      data-tooltip="Get AI-generated interview questions for this role"
-                      className="font-mono text-[10px] uppercase tracking-[0.18em] rounded-full border px-3 py-1 transition-opacity hover:opacity-70"
-                      style={{borderColor:"var(--border)", background:"var(--secondary)", color:"var(--muted-foreground)"}}
-                    >
-                      Prep
-                    </button>
-                    <button
-                      onClick={() => setCoverLetterJob(job)}
-                      data-tooltip="Generate a personalised cover letter using your CV"
-                      className="font-mono text-[10px] uppercase tracking-[0.18em] rounded-full border px-3 py-1 transition-opacity hover:opacity-70"
-                      style={{borderColor:"var(--border)", background:"var(--secondary)", color:"var(--muted-foreground)"}}
-                    >
-                      Cover letter
-                    </button>
-                    <button
                       onClick={() => deleteJob(job.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity rounded-lg p-1.5 hover:bg-[oklch(0.52_0.22_26/0.08)]"
-                      style={{color:"var(--muted-foreground)"}}
+                      className="rounded-full px-2.5 py-1.5 transition-opacity hover:opacity-80"
+                      style={{
+                        border: "1px solid oklch(0.65 0.18 26 / 0.35)",
+                        background: "oklch(0.95 0.05 26 / 0.5)",
+                        color: "oklch(0.48 0.20 26)"
+                      }}
                       title="Delete"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
                       </svg>
                     </button>
