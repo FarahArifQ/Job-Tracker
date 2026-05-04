@@ -17,13 +17,20 @@ export async function POST(request: NextRequest) {
   // Fetch user profile for personalised scoring
   const { data: profile } = await supabase
     .from('profiles')
-    .select('cv_summary')
+    .select('cv_summary, skills')
     .eq('user_id', user.id)
     .single()
 
+  if (!profile?.cv_summary && (!profile?.skills || profile.skills.length === 0)) {
+    return Response.json(
+      { error: 'Please upload your CV or add your skills in the Profile page before analysing jobs.' },
+      { status: 400 }
+    )
+  }
+
   const candidateContext = profile?.cv_summary
     ? `Candidate profile:\n${profile.cv_summary}`
-    : `Candidate: a software developer with general technical skills`
+    : `Candidate skills: ${profile.skills?.join(', ')}`
 
   const prompt = `${candidateContext}
 

@@ -306,7 +306,7 @@ function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" 
          data-tooltip="AI match score out of 10"
          style={{border:"1px solid var(--border)",background:"var(--card)"}}>
       <span className="font-display text-2xl font-light leading-none" style={{color}}>{score}</span>
-      <span className="font-mono text-[11px] tracking-widest" style={{color:"var(--muted-foreground)",opacity:0.55}}>/10</span>
+      <span className="font-mono text-sm font-medium tracking-wide" style={{color:"var(--muted-foreground)",opacity:0.75}}>/10</span>
     </div>
   )
   return (
@@ -322,6 +322,7 @@ function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" 
 export default function Home() {
   const [jd, setJd]               = useState("")
   const [loading, setLoading]     = useState(false)
+  const [analyseError, setAnalyseError] = useState("")
   const [result, setResult]       = useState<any>(null)
   const [jobs, setJobs]           = useState<any[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
@@ -366,6 +367,7 @@ export default function Home() {
   async function analyseJob() {
     if (!jd.trim()) return
     setLoading(true)
+    setAnalyseError("")
     setResult(null)
     const res = await fetch("/api/analyse-job", {
       method: "POST",
@@ -373,6 +375,11 @@ export default function Home() {
       body: JSON.stringify({ jobText: jd }),
     })
     const data = await res.json()
+    if (data.error) {
+      setAnalyseError(data.error)
+      setLoading(false)
+      return
+    }
     setResult(data)
     setLoading(false)
     setJd("")
@@ -591,22 +598,24 @@ export default function Home() {
               <p className="mt-4 text-sm leading-relaxed" style={{color:"var(--foreground)",opacity:0.7}}>
                 Paste any job description. We'll read between the lines — seniority, scope, what they really want.
               </p>
-              <div className="mt-8 font-mono text-[11px] uppercase tracking-[0.18em]" style={{color:"var(--foreground)",opacity:0.5}}>
-                <div className="flex items-center justify-between">
-                  <span>Characters</span>
-                  <span>{jd.length}</span>
-                </div>
-              </div>
             </div>
             <div className="p-6 md:col-span-8 md:p-8">
-              <textarea
-                value={jd}
-                onChange={(e) => setJd(e.target.value)}
-                onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") analyseJob() }}
-                placeholder="Paste the full job description here…"
-                className="min-h-[180px] w-full resize-none border-0 bg-transparent font-display text-lg leading-relaxed outline-none"
-                style={{color:"var(--foreground)"}}
-              />
+              <div className="relative">
+                <textarea
+                  value={jd}
+                  onChange={(e) => setJd(e.target.value)}
+                  onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") analyseJob() }}
+                  placeholder="Paste the full job description here…"
+                  className="min-h-[180px] w-full resize-none border-0 bg-transparent font-display text-lg leading-relaxed outline-none"
+                  style={{color:"var(--foreground)"}}
+                />
+                {jd.length > 0 && (
+                  <span className="absolute bottom-2 right-2 font-mono text-[10px] pointer-events-none"
+                        style={{color:"var(--muted-foreground)", opacity: 0.5}}>
+                    {jd.length}
+                  </span>
+                )}
+              </div>
               <div className="mt-6 flex flex-col items-stretch justify-between gap-4 border-t pt-6 sm:flex-row sm:items-center"
                    style={{borderColor:"var(--border)"}}>
                 <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em]"
@@ -629,6 +638,20 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {analyseError && (
+          <div className="mt-4 rounded-2xl px-6 py-4 animate-fade-in"
+               style={{border:"1px solid oklch(0.68 0.14 72 / 0.35)", background:"oklch(0.68 0.14 72 / 0.07)"}}>
+            <p className="text-sm leading-relaxed" style={{color:"var(--foreground)"}}>
+              {analyseError}
+            </p>
+            <a href="/profile"
+               className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-opacity hover:opacity-70"
+               style={{color:"var(--accent)"}}>
+              Go to Profile →
+            </a>
+          </div>
+        )}
 
         {/* Latest result */}
         {result && (
@@ -713,18 +736,15 @@ export default function Home() {
             <p className="py-12 text-center font-mono text-sm" style={{color:"var(--muted-foreground)"}}>No applications yet. Paste a job above.</p>
           ) : (
             <ul style={{borderTop:"1px solid var(--border)"}}>
-              {jobs.map((job, idx) => (
+              {jobs.map((job) => (
                 <li key={job.id}
 
                     className="job-row group grid grid-cols-12 gap-x-4 gap-y-2 py-6 md:py-8"
                     style={{borderBottom:"1px solid var(--border)"}}>
-                  <div className="col-span-2 flex items-center md:col-span-1">
-                    <span className="font-mono text-xs" style={{color:"var(--muted-foreground)"}}>{String(idx+1).padStart(2,"0")}</span>
-                  </div>
-                  <div className="col-span-2 flex items-center md:col-span-3 md:block">
+                  <div className="col-span-3 flex items-center md:col-span-2">
                     <ScoreBadge score={job.match_score} size="sm" />
                   </div>
-                  <div className="col-span-12 md:col-span-6 md:col-start-5">
+                  <div className="col-span-12 md:col-span-8">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <h3 className="font-display text-2xl font-normal tracking-tight">{job.role}</h3>
                       <span className="font-mono text-xs uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>· {job.company}</span>

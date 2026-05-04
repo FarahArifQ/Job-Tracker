@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState("")
@@ -54,10 +55,7 @@ export default function LoginPage() {
           <div className="grain flex h-10 w-10 items-center justify-center rounded-lg text-white" style={{background:"var(--gradient-ink)"}}>
             <span className="font-display text-lg leading-none">J</span>
           </div>
-          <div className="text-center">
-            <p className="font-display text-xl tracking-tight">JobTracker</p>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em]" style={{color:"var(--muted-foreground)"}}>Edition 04 · 2026</p>
-          </div>
+          <p className="font-display text-xl tracking-tight">JobTracker</p>
         </div>
 
         {/* Card */}
@@ -113,16 +111,37 @@ export default function LoginPage() {
               <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em]" style={{color:"var(--muted-foreground)"}}>
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                minLength={6}
-                className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none"
-                style={{border:"1px solid var(--border)",background:"var(--background)",color:"var(--foreground)"}}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  minLength={6}
+                  className="w-full rounded-lg px-3.5 py-2.5 pr-10 text-sm outline-none"
+                  style={{border:"1px solid var(--border)",background:"var(--background)",color:"var(--foreground)"}}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-70"
+                  style={{color:"var(--muted-foreground)"}}
+                >
+                  {showPassword ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && (
