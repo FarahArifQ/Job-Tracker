@@ -39,14 +39,6 @@
 
 ---
 
-## Screenshots
-
-> _Screenshots coming soon_
->
-> Key views: Landing / Auth → Dashboard with stats → Job analysis result → Applications list → Interview prep panel → Cover letter panel
-
----
-
 ## Run Locally
 
 ### Prerequisites
